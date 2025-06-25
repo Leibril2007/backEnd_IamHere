@@ -184,6 +184,52 @@ app.post('/avisoGeneralAlum', async (req, res) => {
 
 });
 
+/* RUTAS DE ELIMINAR ----------------------------------------------- */
+
+app.delete('/eliminarAlumno', async (req, res) => {
+  const { passIng, idAlumnoEl } = req.body;
+
+  try {
+    
+    const sqlUsuario = `SELECT contraseña FROM usuarios WHERE contraseña = ?`;
+    const [resUsuario] = await db.query(sqlUsuario, [passIng]);
+
+    if (resUsuario.length === 0) {
+      return res.status(403).json({ success: false, message: 'Contraseña incorrecta' });
+    }
+
+    const sqlAlumno = `SELECT id FROM alumnos WHERE id = ?`;
+    const [resAlumno] = await db.query(sqlAlumno, [idAlumnoEl]);
+
+    if (resAlumno.length === 0) {
+      return res.status(404).json({ success: false, message: 'Alumno no encontrado' });
+    }
+
+    const sqlDeleteAsistencias = `DELETE FROM asistencia WHERE alumnos_id = ?`;
+    await db.query(sqlDeleteAsistencias, [idAlumnoEl]);
+
+
+    const sqlDeleteUniforme = `DELETE FROM uniforme WHERE alumnos_id = ?`;
+    await db.query(sqlDeleteUniforme, [idAlumnoEl]);
+
+    const sqlDeleteAlumno = `DELETE FROM alumnos WHERE id = ?`;
+    await db.query(sqlDeleteAlumno, [idAlumnoEl]);
+
+    res.json({ success: true, message: 'Alumno, asistencias y uniformes eliminados correctamente' });
+
+  } catch (error) {
+    console.error('ERROR al eliminar alumno:', error);
+    res.status(500).json({ success: false, message: 'Error del servidor' });
+  }
+});
+
+
+
+
+
+
+
+
 
 //------------------------------------------------------------------------------------
 
