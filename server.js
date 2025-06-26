@@ -7,7 +7,7 @@ const nodemailer = require('nodemailer');
 const app = express();
 
 app.use(cors({
-  origin: 'http://127.0.0.1:5500', 
+  origin: 'http://127.0.0.1:5501', 
 }));
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
@@ -346,7 +346,80 @@ app.post('/cambiarContrasena', async (req, res) => {
   }
 });
 
+// -------------------------------- CORREOS ------------------------------------
 
+app.post('/verificarCorreo', async(req, res) => {
+
+  let { idAlumnoRec, mensaje } = req.body;
+
+  try {
+
+    let [veriCorreo] = await db.query(`SELECT correo FROM alumnos WHERE id = ?`, [idAlumnoRec]);
+    
+    if (veriCorreo.length === 0) {
+      return res.status(404).json({ error: 'Alumno no encontrado' });
+    }
+
+    let correos = veriCorreo[0].correo;
+
+    const mailOptions = {
+      from: '"Asistencia con Im Here! 2025" <imhereapp2025@gmail.com>',
+      to: correos,
+      subject: 'Observación personalizada',
+      text: mensaje
+    };
+
+    await transporter.sendMail(mailOptions);
+
+    res.json({
+      success: true,
+      message: 'Correo enviado correctamente',
+      user: {
+        correo: correos
+      }
+    });
+
+    
+  } catch (error) {
+    console.error('Error al verificar correo:', error);
+    res.status(500).json({ success: false, message: 'Error del servidor al verificar el correo' });
+  }
+
+});
+
+app.post('/correoGeneral', async(req, res) => {
+
+  let { idGradoSel, mensaje } = req.body;
+  
+  try {
+
+    let [veriGradoMen] = await db.query(` SELECT correo FROM alumnos WHERE grados_id = ?`, [idGradoSel]);
+
+    if (veriGradoMen.length === 0) {
+      return res.status(404).json({ error: 'Alumno no encontrado' });
+    }
+
+    const listaCorreos = veriGradoMen.map(alum => alum.correo);
+
+    const mailOptions = {
+      from: '"Aviso General Im Here! 2025" <imhereapp2025@gmail.com>',
+      to: listaCorreos,
+      subject: 'Aviso general para el grado',
+      text: mensaje
+    };
+
+    await transporter.sendMail(mailOptions);
+
+    res.json({ success: true, message: 'Correos enviados correctamente' });
+
+    
+  } catch (error) {
+    console.error('Error al verificar correo:', error);
+    res.status(500).json({ success: false, message: 'Error del servidor al verificar el correo' });
+  }
+
+
+});
 
 
 
