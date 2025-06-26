@@ -2,6 +2,7 @@
 const express = require('express');
 const cors = require('cors');
 const mysql = require('mysql2/promise');
+const nodemailer = require('nodemailer');
 
 const app = express();
 
@@ -33,6 +34,19 @@ const db = mysql.createPool({
     console.error('Error al conectar a la base de datos:', err);
   }
 })();
+
+// TRANSPORTADOR DE CORREO --------------------------------------
+
+const transporter = nodemailer.createTransport({
+  service: 'gmail',
+  auth: {
+    user: 'imhereapp2025@gmail.com',
+    pass: 'hbis ejxx lzde hkqj' 
+  }
+});
+
+let codigos = {}; // Guarda temporalmente los códigos enviados
+
 
 // CONEXIONES ------------------------------------------------------------------------------------
 
@@ -113,6 +127,8 @@ app.get('/alumnos', async (req, res) => {
 });
 
 
+/*------------------- INSERTAR DATOS ----------------------------------------------------------- */
+
 app.post('/agregarAsistencia', async (req, res) => {
   let { usuarios_id, alumnos_id, fecha, estado, correo_personal, uniforme_id } = req.body;
   
@@ -184,6 +200,32 @@ app.post('/avisoGeneralAlum', async (req, res) => {
 
 });
 
+
+app.post('/agregarAlumno', async(req, res) =>{
+
+  let { nombre, apellido, correoIns, idGrado } = req.body;
+
+  try{
+    let agregarAl = 'INSERT INTO alumnos (nombre, apellido, correo, grados_id) VALUES (?, ?, ?, ?)';
+ 
+    const [result] = await db.query(agregarAl, [nombre, apellido, correoIns, idGrado]);
+
+    res.status(201).json({
+      id: result.insertId,
+      nombre,
+      apellido,
+      correoIns, 
+      idGrado
+    }); 
+
+  } catch(err){
+    console.log("ERROR al insertar alumno", err);
+    res.status(500).json({ error: 'Error al guardar Alumno' });
+  }
+
+});
+
+
 /* RUTAS DE ELIMINAR ----------------------------------------------- */
 
 app.delete('/eliminarAlumno', async (req, res) => {
@@ -191,29 +233,29 @@ app.delete('/eliminarAlumno', async (req, res) => {
 
   try {
     
-    const sqlUsuario = `SELECT contraseña FROM usuarios WHERE contraseña = ?`;
-    const [resUsuario] = await db.query(sqlUsuario, [passIng]);
+    const verificarContra = `SELECT contraseña FROM usuarios WHERE contraseña = ?`;
+    const [resVeriC] = await db.query(verificarContra, [passIng]);
 
-    if (resUsuario.length === 0) {
+    if (resVeriC.length === 0) {
       return res.status(403).json({ success: false, message: 'Contraseña incorrecta' });
     }
 
-    const sqlAlumno = `SELECT id FROM alumnos WHERE id = ?`;
-    const [resAlumno] = await db.query(sqlAlumno, [idAlumnoEl]);
+    const veriAlumnoId = `SELECT id FROM alumnos WHERE id = ?`;
+    const [resAlumno] = await db.query(veriAlumnoId, [idAlumnoEl]);
 
     if (resAlumno.length === 0) {
       return res.status(404).json({ success: false, message: 'Alumno no encontrado' });
     }
 
-    const sqlDeleteAsistencias = `DELETE FROM asistencia WHERE alumnos_id = ?`;
-    await db.query(sqlDeleteAsistencias, [idAlumnoEl]);
+    const elimiAsistenciaAl = `DELETE FROM asistencia WHERE alumnos_id = ?`;
+    await db.query(elimiAsistenciaAl, [idAlumnoEl]);
 
 
-    const sqlDeleteUniforme = `DELETE FROM uniforme WHERE alumnos_id = ?`;
-    await db.query(sqlDeleteUniforme, [idAlumnoEl]);
+    const elimiUniAL = `DELETE FROM uniforme WHERE alumnos_id = ?`;
+    await db.query(elimiUniAL, [idAlumnoEl]);
 
-    const sqlDeleteAlumno = `DELETE FROM alumnos WHERE id = ?`;
-    await db.query(sqlDeleteAlumno, [idAlumnoEl]);
+    const elimiALum = `DELETE FROM alumnos WHERE id = ?`;
+    await db.query(elimiALum, [idAlumnoEl]);
 
     res.json({ success: true, message: 'Alumno, asistencias y uniformes eliminados correctamente' });
 
@@ -223,7 +265,86 @@ app.delete('/eliminarAlumno', async (req, res) => {
   }
 });
 
+/* RECUPERAR CONTRASEÑA */
 
+app.post('/enviarCodigo', async (req, res) => {
+  const { correo } = req.body;
+
+  try {
+    
+    const [results] = await db.query('SELECT * FROM profesores WHERE correo = ?', [correo]);
+
+    if (results.length === 0) {
+      return res.status(404).json({ error: 'Correo no registrado' });
+    }
+
+    // Generar código
+    const codigo = Math.floor(100000 + Math.random() * 900000);
+    codigos[correo] = codigo;
+
+    // Enviar correo
+    const mailOptions = {
+      from: 'imhereapp2025@gmail.com',
+      to: correo,
+      subject: 'Código de recuperación',
+      text: `Hola! este es tu código de recuperación 😉: ${codigo}`
+    };
+
+    await transporter.sendMail(mailOptions);
+
+    res.json({ success: true, mensaje: 'Código enviado correctamente' });
+  } catch (err) {
+    console.error('Error al enviar código:', err);
+    res.status(500).json({ error: 'Error al enviar el código' });
+  }
+});
+
+
+app.post('/verificarCodigo', (req, res) => {
+  const { correo, codigoIng } = req.body;
+
+  const codigoCorrecto = codigos[correo];
+
+  if (!codigoCorrecto) {
+    return res.status(404).json({ success: false, message: 'No se ha enviado un código a este correo' });
+  }
+
+  if (parseInt(codigoIng) !== codigoCorrecto) {
+    return res.status(401).json({ success: false, message: 'Código incorrecto' });
+  }
+
+  // Si llega aquí, el código es válido
+  res.json({ success: true, message: 'Código verificado correctamente' });
+});
+
+
+
+app.post('/cambiarContrasena', async (req, res) => {
+  const { correo, codigoIng, nuevContra } = req.body;
+
+  const codigoGuardado = codigos[correo];
+
+  if (!codigoGuardado) {
+    return res.status(400).json({ success: false, message: 'No se ha enviado código a este correo' });
+  }
+
+  if (parseInt(codigoIng) !== codigoGuardado) {
+    return res.status(401).json({ success: false, message: 'Código incorrecto' });
+  }
+
+  try {
+    const query = ` UPDATE usuarios JOIN profesores ON usuarios.profesores_id = profesores.id SET usuarios.contraseña = ? WHERE profesores.correo = ?`;
+    await db.query(query, [nuevContra, correo]);
+
+    // Eliminar el código una vez utilizado
+    delete codigos[correo];
+
+    res.json({ success: true, message: 'Contraseña actualizada correctamente' });
+  } catch (error) {
+    console.error('Error al actualizar la contraseña:', error);
+    res.status(500).json({ success: false, message: 'Error del servidor al actualizar la contraseña' });
+  }
+});
 
 
 
