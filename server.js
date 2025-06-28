@@ -131,12 +131,29 @@ app.get('/alumnos', async (req, res) => {
 
 app.post('/agregarAsistencia', async (req, res) => {
   let { usuarios_id, alumnos_id, fecha, estado, correo_personal, uniforme_id } = req.body;
-  
-  let query = 'INSERT INTO asistencia (usuarios_id, alumnos_id, fecha, estado, correo_personal, uniforme_id) VALUES (?, ?, ?, ?, ?, ?)';
 
   try {
-    const [result] = await db.query(query, [usuarios_id, alumnos_id, fecha, estado, correo_personal, uniforme_id]);
-    
+    let query;
+    let params;
+
+    if (uniforme_id !== null && uniforme_id !== undefined) {
+      query = `
+        INSERT INTO asistencia 
+        (usuarios_id, alumnos_id, fecha, estado, correo_personal, uniforme_id) 
+        VALUES (?, ?, ?, ?, ?, ?)
+      `;
+      params = [usuarios_id, alumnos_id, fecha, estado, correo_personal, uniforme_id];
+    } else {
+      query = `
+        INSERT INTO asistencia 
+        (usuarios_id, alumnos_id, fecha, estado, correo_personal) 
+        VALUES (?, ?, ?, ?, ?)
+      `;
+      params = [usuarios_id, alumnos_id, fecha, estado, correo_personal];
+    }
+
+    const [result] = await db.query(query, params);
+
     res.status(201).json({
       id: result.insertId,
       usuarios_id,
@@ -144,8 +161,7 @@ app.post('/agregarAsistencia', async (req, res) => {
       fecha,
       estado,
       correo_personal,
-      uniforme_id
-
+      uniforme_id: uniforme_id ?? null
     });
   } catch (err) {
     console.error('Error al insertar la asistencia: ', err);
@@ -171,6 +187,32 @@ app.post('/uniforme', async (req, res) => {
     console.error('Error al insertar la asistencia: ', err);
     res.status(500).json({ error: 'Error al guardar la asistencia' });
   }
+});
+
+
+app.post('/asistenciaDeGrado', async (req, res) => {
+
+  let { grado_id, estado, fecha, idUser } = req.body;
+
+  try {
+    
+    let [guardarAsis] =await db.query(' INSERT INTO asistenciaGrado (grados_id, estado, fecha, usuarios_id) VALUES (?,?,?,?)', [grado_id, estado, fecha, idUser]);
+
+    res.status(201).json({
+      id: guardarAsis.insertId,
+      grado_id,
+      estado,
+      fecha,
+      idUser
+    });
+
+
+  } catch (error) {
+    console.error('Error al insertar la asistencia: ', error);
+    res.status(500).json({ error: 'Error al guardar la asistencia' });
+  }
+
+
 });
 
 
@@ -265,7 +307,7 @@ app.delete('/eliminarAlumno', async (req, res) => {
   }
 });
 
-/* RECUPERAR CONTRASEÑA */
+/* RECUPERAR CONTRASEÑA ------------------------------------------------*/
 
 app.post('/enviarCodigo', async (req, res) => {
   const { correo } = req.body;
@@ -423,6 +465,44 @@ app.post('/correoGeneral', async(req, res) => {
 
 
 
+app.post('/correoPorUniforme', async(req, res) => {
+
+  let { idAlumnoRec, mensaje } = req.body;
+
+  try {
+
+    let [veriCorreo] = await db.query(`SELECT nombre, apellido, correo FROM alumnos WHERE id = ?`, [idAlumnoRec]);
+    
+    if (veriCorreo.length === 0) {
+      return res.status(404).json({ error: 'Alumno no encontrado' });
+    }
+
+    let correos = veriCorreo[0].correo;
+
+    const mailOptions = {
+      from: '"Reporte por uniforme" <imhereapp2025@gmail.com>',
+      to: correos,
+      subject: 'Asistencia con Im Here! 2025',
+      text: mensaje
+    };
+
+    await transporter.sendMail(mailOptions);
+
+    res.json({
+      success: true,
+      message: 'Correo enviado correctamente',
+      user: {
+        correo: correos
+      }
+    });
+
+    
+  } catch (error) {
+    console.error('Error al verificar correo:', error);
+    res.status(500).json({ success: false, message: 'Error del servidor al verificar el correo' });
+  }
+
+});
 
 
 //------------------------------------------------------------------------------------
