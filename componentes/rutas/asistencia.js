@@ -100,4 +100,32 @@ router.post('/asistenciaDeGrado', async (req, res) => {
 
 });
 
+
+router.get('/asistenciaPieNivel/:nivelId', async (req, res) => {
+  const nivelId = req.params.nivelId;
+
+  const consulta = `
+    SELECT 
+      g.nombre AS grado,
+      COUNT(*) AS total_asistencias
+    FROM asistencia a
+    JOIN alumnos al ON a.alumnos_id = al.id
+    JOIN grados g ON al.grados_id = g.id
+    WHERE g.nivel_id = ?
+      AND a.estado = 'presente'
+      AND a.fecha BETWEEN CURDATE() - INTERVAL 7 DAY AND CURDATE()
+    GROUP BY g.nombre
+    ORDER BY total_asistencias DESC
+  `;
+
+  try {
+    const [filas] = await db.query(consulta, [nivelId]);
+    res.json(filas);
+  } catch (err) {
+    console.error('Error al obtener asistencia semanal por nivel:', err);
+    res.status(500).json({ error: 'Error en el servidor' });
+  }
+});
+
+
 module.exports = router;
