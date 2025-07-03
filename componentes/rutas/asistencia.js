@@ -107,14 +107,15 @@ router.get('/asistenciaPieNivel/:nivelId', async (req, res) => {
   const consulta = `
     SELECT 
       g.nombre AS grado,
-      COUNT(*) AS total_asistencias
+      COUNT(*) AS total_asistencias,
+      ROUND((COUNT(*) / (COUNT(DISTINCT al.id) * 5)) * 100, 2) AS porcentaje_asistencia
     FROM asistencia a
     JOIN alumnos al ON a.alumnos_id = al.id
     JOIN grados g ON al.grados_id = g.id
     WHERE g.nivel_id = ?
       AND a.estado = 'presente'
       AND a.fecha BETWEEN CURDATE() - INTERVAL 7 DAY AND CURDATE()
-    GROUP BY g.nombre
+    GROUP BY g.id
     ORDER BY total_asistencias DESC
   `;
 
@@ -126,6 +127,63 @@ router.get('/asistenciaPieNivel/:nivelId', async (req, res) => {
     res.status(500).json({ error: 'Error en el servidor' });
   }
 });
+
+
+router.get('/proyecciones/asistenciaGrado/:gradoId', async (req, res) => {
+  const gradoId = req.params.gradoId;
+
+  const consulta = `
+    SELECT 
+      al.id AS alumno_id,
+      CONCAT(al.nombre, ' ', al.apellido) AS nombre_completo,
+      COUNT(*) AS asistencias,
+      ROUND((COUNT(*) / 5) * 100, 2) AS porcentaje_asistencia
+    FROM asistencia a
+    JOIN alumnos al ON a.alumnos_id = al.id
+    WHERE al.grados_id = ?
+      AND a.estado = 'presente'
+      AND a.fecha BETWEEN CURDATE() - INTERVAL 7 DAY AND CURDATE()
+    GROUP BY al.id
+    ORDER BY asistencias DESC
+  `;
+
+  try {
+    const [filas] = await db.query(consulta, [gradoId]);
+    res.json(filas);
+  } catch (err) {
+    console.error('Error al obtener asistencia semanal por grado:', err);
+    res.status(500).json({ error: 'Error en el servidor' });
+  }
+});
+
+
+router.get('/proyecciones/asistenciaAlumEsp/:idAlumno', async (req, res) => {
+  const idAlumno = req.params.idAlumno;
+
+  const consulta = `
+    SELECT 
+      al.id AS alumno_id,
+      CONCAT(al.nombre, ' ', al.apellido) AS nombre_completo,
+      COUNT(*) AS asistencias,
+      ROUND((COUNT(*) / 5) * 100, 2) AS porcentaje_asistencia
+    FROM asistencia a
+    JOIN alumnos al ON a.alumnos_id = al.id
+    WHERE al.id = ?
+      AND a.estado = 'presente'
+      AND a.fecha BETWEEN CURDATE() - INTERVAL 7 DAY AND CURDATE()
+    GROUP BY al.id
+  `;
+
+  try {
+    const [filas] = await db.query(consulta, [idAlumno]);
+    res.json(filas);
+  } catch (err) {
+    console.error('Error al obtener asistencia del alumno:', err);
+    res.status(500).json({ error: 'Error en el servidor' });
+  }
+});
+
+
 
 
 module.exports = router;
