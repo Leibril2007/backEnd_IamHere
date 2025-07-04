@@ -20,6 +20,7 @@ app.use(require('./componentes/rutas/correos'));
 app.use(require('./componentes/rutas/profesores'));
 app.use(require('./componentes/rutas/recuperacion'));
 app.use(require('./componentes/rutas/avisos'));
+app.use(require('./componentes/rutas/uniformeYObs'));
 
 
 const PORT = 3000;
