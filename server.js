@@ -22,7 +22,7 @@ app.use(require('./componentes/rutas/recuperacion'));
 app.use(require('./componentes/rutas/avisos'));
 app.use(require('./componentes/rutas/uniformeYObs'));
 app.use(require('./componentes/rutas/asistenciaCoordi'));
-/* app.use(require('./componentes/rutas/coordinador')); */
+
 
 
 const PORT = 3000;
