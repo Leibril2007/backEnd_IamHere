@@ -5,9 +5,9 @@ const cors = require('cors');
 const app = express();
 
 app.use(cors({
-  origin: 'http://127.0.0.1:5501', 
+  origin: ['http://127.0.0.1:5501', 
   'https://frontend-iamhere.onrender.com'
-}));
+]}));
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 
