@@ -2,30 +2,6 @@ const express = require('express');
 const router = express.Router();
 const db = require('../config/db');
 
-
-/* router.get('/profesor/:id/grados', async (req, res) => {
-    const profesorId = req.params.id;
-  
-    try {
-      const [result] = await db.query('SELECT nivel_id FROM profesores WHERE id = ?', [profesorId]);
-  
-      if (result.length === 0) {
-        return res.status(404).json({ message: 'Profesor no encontrado' });
-      }
-  
-      const nivelId = result[0].nivel_id;
-
-      console.log("valorNivel",nivelId);
-  
-      const [grados] = await db.query('SELECT id, nombre FROM grados WHERE nivel_id = ?', [nivelId]);
-  
-      res.json(grados);
-    } catch (err) {
-      console.error('Error al obtener grados:', err);
-      res.status(500).send('Error en la consulta');
-    }
-}); */
-
 router.get('/profesor/:id/grados', async (req, res) => {
   const profesorId = req.params.id;
 
@@ -38,7 +14,6 @@ router.get('/profesor/:id/grados', async (req, res) => {
     if (profesorResult.length > 0) {
       nivelId = profesorResult[0].nivel_id;
     } else {
-      // Si no se encuentra en profesores, buscar en coordinadores
       const [coordinadorResult] = await db.query('SELECT nivel_id FROM coordinador WHERE id = ?', [profesorId]);
 
       if (coordinadorResult.length > 0) {
@@ -93,12 +68,11 @@ router.post('/agregarProfesor', async (req, res) => {
     contraseña
   } = req.body;
 
-  const conn = await db.getConnection(); // Usamos transacción para garantizar integridad
+  const conn = await db.getConnection(); 
 
   try {
     await conn.beginTransaction();
 
-    // 1. Insertar en tabla `profesores`
     const insertProfesorQuery = `
       INSERT INTO profesores (nombre, apellido, correo, grados_id, nivel_id)
       VALUES (?, ?, ?, ?, ?)
@@ -114,7 +88,6 @@ router.post('/agregarProfesor', async (req, res) => {
 
     const profesorId = profesorResult.insertId;
 
-    // 2. Insertar en tabla `usuarios`
     const insertUsuarioQuery = `
       INSERT INTO usuarios (usuario, contraseña, profesores_id)
       VALUES (?, ?, ?)
